@@ -122,7 +122,7 @@ interface Props {
     <Form {...form}>
       <form
         className='flex flex-col justify-start gap-10'
-//        onSubmit={form.handleSubmit(onSubmit)}
+        onSubmit={form.handleSubmit(onSubmit)}
       >
         <FormField // 头像上传
           control={form.control}
