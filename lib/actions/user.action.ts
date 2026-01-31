@@ -1,5 +1,5 @@
-// 这个文件是一个服务器操作，负责更新用户信息
-// action是服务器端的操作，用于处理用户信息的更新
+// 这个文件是一个服务器操作，负责执行用户操作
+// action是服务器端的操作，用于处理用户操作
 "use server"
 
 import { revalidatePath } from "next/cache";
@@ -9,15 +9,6 @@ import { ca } from "zod/v4/locales";
 import { Params } from "zod/v4/core";
 import path from "path";
 
-interface User {
-  userId: string;
-  username: string;
-  name: string;
-  bio: string;
-  image: string;
-  path: string;
-}
-
 export async function updateUser({
   userId,
   username,
@@ -25,7 +16,14 @@ export async function updateUser({
   bio,
   image,
   path
-}: User ): Promise<void> {
+}: {
+  userId: string;
+  username: string;
+  name: string;
+  bio: string;
+  image: string;
+  path: string;
+} ): Promise<void> {
   // 连接到数据库
   await connectToDB();
   
@@ -50,5 +48,16 @@ export async function updateUser({
     }
   }catch(error: any){
     throw new Error(`Failed to create/update user: ${error.message}`);
+  }
+}
+
+export async function fetchUser(userId: string) {
+  try{
+    await connectToDB();
+
+    return await User
+    .findOne({id: userId})
+  }catch (error : any){
+    throw new Error(`Failed to fetch user: ${error.message}`);
   }
 }
