@@ -8,13 +8,19 @@ import User from "../models/user.model";
 import Thread from "../models/thread.model";
 import Community from "../models/community.model";
 
+/**
+ * 获取帖子（顶级线程）的函数，支持分页
+ * @param pageNumber 默认值为1，表示第一页
+ * @param pageSize 默认值为20，表示每页显示20个帖子
+ * @returns 
+ */
 export async function fetchPosts(pageNumber = 1, pageSize = 20) {
-  connectToDB();
-
-  // Calculate the number of posts to skip based on the page number and page size.
+  await connectToDB();
+  
+  // 计算跳过的文档数量以实现分页
   const skipAmount = (pageNumber - 1) * pageSize;
-
-  // Create a query to fetch the posts that have no parent (top-level threads) (a thread that is not a comment/reply).
+  
+  // 创建一个查询以获取没有父线程的帖子（顶级线程）（不是评论/回复的线程）。
   const postsQuery = Thread.find({ parentId: { $in: [null, undefined] } })
     .sort({ createdAt: "desc" })
     .skip(skipAmount)
@@ -25,29 +31,30 @@ export async function fetchPosts(pageNumber = 1, pageSize = 20) {
     })
     .populate({
       path: "community",
-      model: Community,
+//      model: Community,
     })
     .populate({
-      path: "children", // Populate the children field
+      path: "children", 
       populate: {
-        path: "author", // Populate the author field within children
+        path: "author", 
         model: User,
-        select: "_id name parentId image", // Select only _id and username fields of the author
+        select: "_id name parentId image", 
       },
     });
 
-  // Count the total number of top-level posts (threads) i.e., threads that are not comments.
+  // 执行查询并获取帖子数据
   const totalPostsCount = await Thread.countDocuments({
     parentId: { $in: [null, undefined] },
-  }); // Get the total count of posts
-
+  }); 
+  // 计算是否有下一页
   const posts = await postsQuery.exec();
-
+  // isNext为布尔值，指示是否有更多帖子可供分页
   const isNext = totalPostsCount > skipAmount + posts.length;
 
   return { posts, isNext };
 }
 
+// Params是createThread函数的参数类型定义
 interface Params {
   text: string,
   author: string,
@@ -55,30 +62,35 @@ interface Params {
   path: string,
 }
 
-export async function createThread({ text, author, communityId, path }: Params
-) {
+/**
+ * 创建一个新的帖子
+ * @param param0 
+ */
+export async function createThread({ text, author, communityId, path }: Params) {
   try {
-    connectToDB();
+    await connectToDB();
 
+    // // findOne用于获取社区的ObjectId
     const communityIdObject = await Community.findOne(
       { id: communityId },
       { _id: 1 }
     );
 
+    // 创建新的线程文档
     const createdThread = await Thread.create({
       text,
       author,
-      community: communityIdObject, // Assign communityId if provided, or leave it null for personal account
+      community: communityIdObject?._id, 
     });
 
-    // Update User model
+    // 更新用户模型
     await User.findByIdAndUpdate(author, {
       $push: { threads: createdThread._id },
     });
 
     if (communityIdObject) {
-      // Update Community model
-      await Community.findByIdAndUpdate(communityIdObject, {
+      // 更新社区模型
+      await Community.findByIdAndUpdate(communityIdObject._id, {
         $push: { threads: createdThread._id },
       });
     }
@@ -89,7 +101,13 @@ export async function createThread({ text, author, communityId, path }: Params
   }
 }
 
+/**
+ * 递归获取所有子线程及其后代
+ * @param threadId 
+ * @returns 
+ */
 async function fetchAllChildThreads(threadId: string): Promise<any[]> {
+  await connectToDB();
   const childThreads = await Thread.find({ parentId: threadId });
 
   const descendantThreads = [];
@@ -101,27 +119,32 @@ async function fetchAllChildThreads(threadId: string): Promise<any[]> {
   return descendantThreads;
 }
 
+/**
+ * 删除一个帖子及其所有子线程
+ * @param id 
+ * @param path 
+ */
 export async function deleteThread(id: string, path: string): Promise<void> {
   try {
-    connectToDB();
+    await connectToDB();
 
-    // Find the thread to be deleted (the main thread)
+    // 查找要删除的主线程
     const mainThread = await Thread.findById(id).populate("author community");
 
     if (!mainThread) {
       throw new Error("Thread not found");
     }
 
-    // Fetch all child threads and their descendants recursively
+    // 递归获取所有子线程及其后代
     const descendantThreads = await fetchAllChildThreads(id);
 
-    // Get all descendant thread IDs including the main thread ID and child thread IDs
+    // 获取所有后代线程ID，包括主线程ID和子线程ID
     const descendantThreadIds = [
       id,
       ...descendantThreads.map((thread) => thread._id),
     ];
 
-    // Extract the authorIds and communityIds to update User and Community models respectively
+    // 提取作者ID和社区ID，以分别更新用户和社区模型
     const uniqueAuthorIds = new Set(
       [
         ...descendantThreads.map((thread) => thread.author?._id?.toString()), // Use optional chaining to handle possible undefined values
@@ -136,16 +159,15 @@ export async function deleteThread(id: string, path: string): Promise<void> {
       ].filter((id) => id !== undefined)
     );
 
-    // Recursively delete child threads and their descendants
+    // 删除线程
     await Thread.deleteMany({ _id: { $in: descendantThreadIds } });
 
-    // Update User model
+    // 更新用户模型
     await User.updateMany(
       { _id: { $in: Array.from(uniqueAuthorIds) } },
       { $pull: { threads: { $in: descendantThreadIds } } }
     );
 
-    // Update Community model
     await Community.updateMany(
       { _id: { $in: Array.from(uniqueCommunityIds) } },
       { $pull: { threads: { $in: descendantThreadIds } } }
@@ -157,8 +179,13 @@ export async function deleteThread(id: string, path: string): Promise<void> {
   }
 }
 
+/**
+ * 通过ID获取线程及其相关信息
+ * @param threadId 
+ * @returns 
+ */
 export async function fetchThreadById(threadId: string) {
-  connectToDB();
+  await connectToDB();
 
   try {
     const thread = await Thread.findById(threadId)
@@ -166,27 +193,27 @@ export async function fetchThreadById(threadId: string) {
         path: "author",
         model: User,
         select: "_id id name image",
-      }) // Populate the author field with _id and username
+      }) 
       .populate({
         path: "community",
-        model: Community,
+        // model: Community,
         select: "_id id name image",
-      }) // Populate the community field with _id and name
+      }) 
       .populate({
-        path: "children", // Populate the children field
+        path: "children", // 推送children字段
         populate: [
           {
-            path: "author", // Populate the author field within children
+            path: "author", // 推送children字段内的author字段
             model: User,
             select: "_id id name parentId image", // Select only _id and username fields of the author
           },
           {
-            path: "children", // Populate the children field within children
-            model: Thread, // The model of the nested children (assuming it's the same "Thread" model)
+            path: "children", // 推送children字段内的children字段
+            model: Thread, // 指定模型为Thread
             populate: {
-              path: "author", // Populate the author field within nested children
+              path: "author", // 推送nested children内的author字段
               model: User,
-              select: "_id id name parentId image", // Select only _id and username fields of the author
+              select: "_id id name parentId image", // 仅选择作者的_id和用户名字段
             },
           },
         ],
@@ -200,36 +227,43 @@ export async function fetchThreadById(threadId: string) {
   }
 }
 
+/**
+ * 追加评论到线程
+ * @param threadId 
+ * @param commentText 
+ * @param userId 
+ * @param path 
+ */
 export async function addCommentToThread(
   threadId: string,
   commentText: string,
   userId: string,
   path: string
 ) {
-  connectToDB();
+  await connectToDB();
 
   try {
-    // Find the original thread by its ID
+    // 找到原始线程，以确保它存在
     const originalThread = await Thread.findById(threadId);
 
     if (!originalThread) {
       throw new Error("Thread not found");
     }
 
-    // Create the new comment thread
+    // 创建新的评论线程
     const commentThread = new Thread({
       text: commentText,
       author: userId,
-      parentId: threadId, // Set the parentId to the original thread's ID
+      parentId: threadId, // 设置parentId为原始线程的ID
     });
 
-    // Save the comment thread to the database
+    // 将评论线程保存到数据库
     const savedCommentThread = await commentThread.save();
 
-    // Add the comment thread's ID to the original thread's children array
+    // 将评论线程的ID添加到原始线程的children数组中
     originalThread.children.push(savedCommentThread._id);
 
-    // Save the updated original thread to the database
+    // 将更新后的原始线程保存到数据库
     await originalThread.save();
 
     revalidatePath(path);
