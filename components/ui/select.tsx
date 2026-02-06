@@ -1,5 +1,6 @@
 "use client"
 
+// 这个文件是一个下拉选择组件，使用了 Radix UI 的 Select 组件库来构建可访问性良好的下拉选择菜单。它定义了多个子组件，如 SelectTrigger、SelectContent、SelectItem 等，并为它们添加了样式和功能。通过这些组件，开发者可以轻松创建具有分组、分隔符和图标指示的复杂下拉选择界面。
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
 import { Check, ChevronDown } from "lucide-react"
