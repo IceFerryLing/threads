@@ -79,12 +79,7 @@ interface Props {
       bio: values.bio,
       image: values.profile_photo,
       path: pathname,
-      // user.id,
-      // values.username,
-      // values.name,
-      // pathname,
-      // values.bio,
-      // values.profile_photo,
+      
     });
 
     if (pathname === "/profile/edit") {
