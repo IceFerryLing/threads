@@ -13,17 +13,20 @@ import { useClerk } from "@clerk/nextjs";
 function LeftSidebar() {
   const pathname = usePathname(); //这是一个hook，用于获取当前的路径名
   const router = useRouter();     //这是一个hook，用于路由导航
+  const clerk = useClerk();
+  const userId = clerk.user?.id;
 
   return (
     <section className="custom-scrollbar leftsidebar">
       <div className="flex w-full flex-1 flex-col gap-6 px-6">
         {sidebarLinks.map((link)=>{
-          const isActive = (pathname.includes(link.route) 
-            && link.route.length > 1) || pathname === link.route;
+          const href = link.route === '/profile' && userId ? `/profile/${userId}` : link.route;
+          const isActive = (pathname.includes(href) 
+            && href.length > 1) || pathname === href;
           
           return (
             <Link 
-              href={link.route}
+              href={href}
               key={link.label}
               className={`leftsidebar_link ${isActive && 'bg-primary-500'}`}
             >
