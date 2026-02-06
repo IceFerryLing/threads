@@ -66,7 +66,7 @@ export async function fetchUserPosts(userId: string) {
   try {
     connectToDB();
 
-    // Find all threads authored by the user with the given userId
+    // 查找给定userId用户创建的所有帖子
     const threads = await User.findOne({ id: userId }).populate({
       path: "threads",
       model: Thread,
@@ -74,7 +74,7 @@ export async function fetchUserPosts(userId: string) {
         {
           path: "community",
           model: Community,
-          select: "name id image _id", // Select the "name" and "_id" fields from the "Community" model
+          select: "name id image _id", // 从"Community"模型中选择"name"和"_id"字段
         },
         {
           path: "children",
@@ -82,7 +82,7 @@ export async function fetchUserPosts(userId: string) {
           populate: {
             path: "author",
             model: User,
-            select: "name image id", // Select the "name" and "_id" fields from the "User" model
+            select: "name image id", // 从"User"模型中选择"name"和"_id"字段
           },
         },
       ],
@@ -94,7 +94,7 @@ export async function fetchUserPosts(userId: string) {
   }
 }
 
-// Almost similar to Thead (search + pagination) and Community (search + pagination)
+// 几乎与Thead（搜索+分页）和Community（搜索+分页）相似
 export async function fetchUsers({
   userId,
   searchString = "",
@@ -111,18 +111,18 @@ export async function fetchUsers({
   try {
     connectToDB();
 
-    // Calculate the number of users to skip based on the page number and page size.
+    // 根据页码和每页大小计算需要跳过的用户数量
     const skipAmount = (pageNumber - 1) * pageSize;
 
-    // Create a case-insensitive regular expression for the provided search string.
+    // 为提供的搜索字符串创建不区分大小写的正则表达式
     const regex = new RegExp(searchString, "i");
 
-    // Create an initial query object to filter users.
+    // 创建初始查询对象来过滤用户
     const query: QueryFilter<typeof User> = {
-      id: { $ne: userId }, // Exclude the current user from the results.
+      id: { $ne: userId }, // 从结果中排除当前用户
     };
 
-    // If the search string is not empty, add the $or operator to match either username or name fields.
+    // 如果搜索字符串不为空，添加$or操作符以匹配用户名或名称字段
     if (searchString.trim() !== "") {
       query.$or = [
         { username: { $regex: regex } },
@@ -130,7 +130,7 @@ export async function fetchUsers({
       ];
     }
 
-    // Define the sort options for the fetched users based on createdAt field and provided sort order.
+    // 根据createdAt字段和提供的排序顺序定义获取用户的排序选项
     const sortOptions = { createdAt: sortBy };
 
     const usersQuery = User.find(query)
@@ -138,12 +138,12 @@ export async function fetchUsers({
       .skip(skipAmount)
       .limit(pageSize);
 
-    // Count the total number of users that match the search criteria (without pagination).
+    // 计算匹配搜索条件的用户总数（不分页）
     const totalUsersCount = await User.countDocuments(query);
 
     const users = await usersQuery.exec();
 
-    // Check if there are more users beyond the current page.
+    // 检查当前页面之后是否有更多用户
     const isNext = totalUsersCount > skipAmount + users.length;
 
     return { users, isNext };
@@ -157,18 +157,18 @@ export async function getActivity(userId: string) {
   try {
     connectToDB();
 
-    // Find all threads created by the user
+    // 查找用户创建的所有帖子
     const userThreads = await Thread.find({ author: userId });
 
-    // Collect all the child thread ids (replies) from the 'children' field of each user thread
+    // 从每个用户帖子的'children'字段中收集所有子帖子ID（回复）
     const childThreadIds = userThreads.reduce((acc, userThread) => {
       return acc.concat(userThread.children);
     }, []);
 
-    // Find and return the child threads (replies) excluding the ones created by the same user
+    // 查找并返回子帖子（回复），排除同一用户创建的回复
     const replies = await Thread.find({
       _id: { $in: childThreadIds },
-      author: { $ne: userId }, // Exclude threads authored by the same user
+      author: { $ne: userId }, // 排除同一用户创建的帖子
     }).populate({
       path: "author",
       model: User,

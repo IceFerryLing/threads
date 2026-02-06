@@ -19,11 +19,11 @@ export async function createCommunity(
   try {
     connectToDB();
 
-    // Find the user with the provided unique id
+    // 根据提供的唯一ID查找用户
     const user = await User.findOne({ id: createdById });
 
     if (!user) {
-      throw new Error("User not found"); // Handle the case if the user with the id is not found
+      throw new Error("User not found"); // 处理找不到该ID用户的情况
     }
 
     const newCommunity = new Community({
@@ -32,7 +32,7 @@ export async function createCommunity(
       username,
       image,
       bio,
-      createdBy: user._id, // Use the mongoose ID of the user
+      createdBy: user._id, // 使用用户的mongoose ID
     });
 
     const createdCommunity = await newCommunity.save();
@@ -43,8 +43,8 @@ export async function createCommunity(
 
     return createdCommunity;
   } catch (error) {
-    // Handle any errors
-    console.error("Error creating community:", error);
+    // 处理任何错误
+    console.error("创建社区错误:", error);
     throw error;
   }
 }
@@ -64,8 +64,8 @@ export async function fetchCommunityDetails(id: string) {
 
     return communityDetails;
   } catch (error) {
-    // Handle any errors
-    console.error("Error fetching community details:", error);
+    // 处理任何错误
+    console.error("获取社区详情错误:", error);
     throw error;
   }
 }
@@ -81,7 +81,7 @@ export async function fetchCommunityPosts(id: string) {
         {
           path: "author",
           model: User,
-          select: "name image id", // Select the "name" and "_id" fields from the "User" model
+          select: "name image id", // 从"User"模型中选择"name"和"_id"字段
         },
         {
           path: "children",
@@ -89,7 +89,7 @@ export async function fetchCommunityPosts(id: string) {
           populate: {
             path: "author",
             model: User,
-            select: "image _id", // Select the "name" and "_id" fields from the "User" model
+            select: "image _id", // 从"User"模型中选择"name"和"_id"字段
           },
         },
       ],
@@ -97,8 +97,8 @@ export async function fetchCommunityPosts(id: string) {
 
     return communityPosts;
   } catch (error) {
-    // Handle any errors
-    console.error("Error fetching community posts:", error);
+    // 处理任何错误
+    console.error("获取社区帖子错误:", error);
     throw error;
   }
 }
@@ -117,16 +117,16 @@ export async function fetchCommunities({
   try {
     connectToDB();
 
-    // Calculate the number of communities to skip based on the page number and page size.
+    // 根据页码和每页大小计算需要跳过的社区数量
     const skipAmount = (pageNumber - 1) * pageSize;
 
-    // Create a case-insensitive regular expression for the provided search string.
+    // 为提供的搜索字符串创建不区分大小写的正则表达式
     const regex = new RegExp(searchString, "i");
 
-    // Create an initial query object to filter communities.
+    // 创建初始查询对象来过滤社区
     const query: QueryFilter<typeof Community> = {};
 
-    // If the search string is not empty, add the $or operator to match either username or name fields.
+    // 如果搜索字符串不为空，添加$or操作符以匹配用户名或名称字段
     if (searchString.trim() !== "") {
       query.$or = [
         { username: { $regex: regex } },
@@ -134,27 +134,27 @@ export async function fetchCommunities({
       ];
     }
 
-    // Define the sort options for the fetched communities based on createdAt field and provided sort order.
+    // 根据createdAt字段和提供的排序顺序定义获取社区的排序选项
     const sortOptions = { createdAt: sortBy };
 
-    // Create a query to fetch the communities based on the search and sort criteria.
+    // 创建查询以根据搜索和排序条件获取社区
     const communitiesQuery = Community.find(query)
       .sort(sortOptions)
       .skip(skipAmount)
       .limit(pageSize)
       .populate("members");
 
-    // Count the total number of communities that match the search criteria (without pagination).
+    // 计算匹配搜索条件的社区总数（不分页）
     const totalCommunitiesCount = await Community.countDocuments(query);
 
     const communities = await communitiesQuery.exec();
 
-    // Check if there are more communities beyond the current page.
+    // 检查当前页面之后是否有更多社区
     const isNext = totalCommunitiesCount > skipAmount + communities.length;
 
     return { communities, isNext };
   } catch (error) {
-    console.error("Error fetching communities:", error);
+    console.error("获取社区错误:", error);
     throw error;
   }
 }
@@ -166,37 +166,37 @@ export async function addMemberToCommunity(
   try {
     connectToDB();
 
-    // Find the community by its unique id
+    // 根据唯一ID查找社区
     const community = await Community.findOne({ id: communityId });
 
     if (!community) {
       throw new Error("Community not found");
     }
 
-    // Find the user by their unique id
+    // 根据唯一ID查找用户
     const user = await User.findOne({ id: memberId });
 
     if (!user) {
       throw new Error("User not found");
     }
 
-    // Check if the user is already a member of the community
+    // 检查用户是否已经是社区成员
     if (community.members.includes(user._id)) {
       throw new Error("User is already a member of the community");
     }
 
-    // Add the user's _id to the members array in the community
+    // 将用户的_id添加到社区的members数组中
     community.members.push(user._id);
     await community.save();
 
-    // Add the community's _id to the communities array in the user
+    // 将社区的_id添加到用户的communities数组中
     user.communities.push(community._id);
     await user.save();
 
     return community;
   } catch (error) {
-    // Handle any errors
-    console.error("Error adding member to community:", error);
+    // 处理任何错误
+    console.error("添加成员到社区错误:", error);
     throw error;
   }
 }
@@ -222,13 +222,13 @@ export async function removeUserFromCommunity(
       throw new Error("Community not found");
     }
 
-    // Remove the user's _id from the members array in the community
+    // 从社区的members数组中移除用户的_id
     await Community.updateOne(
       { _id: communityIdObject._id },
       { $pull: { members: userIdObject._id } }
     );
 
-    // Remove the community's _id from the communities array in the user
+    // 从用户的communities数组中移除社区的_id
     await User.updateOne(
       { _id: userIdObject._id },
       { $pull: { communities: communityIdObject._id } }
@@ -236,8 +236,8 @@ export async function removeUserFromCommunity(
 
     return { success: true };
   } catch (error) {
-    // Handle any errors
-    console.error("Error removing user from community:", error);
+    // 处理任何错误
+    console.error("从社区移除用户错误:", error);
     throw error;
   }
 }
@@ -251,7 +251,7 @@ export async function updateCommunityInfo(
   try {
     connectToDB();
 
-    // Find the community by its _id and update the information
+    // 根据社区的_id查找并更新信息
     const updatedCommunity = await Community.findOneAndUpdate(
       { id: communityId },
       { name, username, image }
@@ -263,8 +263,8 @@ export async function updateCommunityInfo(
 
     return updatedCommunity;
   } catch (error) {
-    // Handle any errors
-    console.error("Error updating community information:", error);
+    // 处理任何错误
+    console.error("更新社区信息错误:", error);
     throw error;
   }
 }
@@ -273,7 +273,7 @@ export async function deleteCommunity(communityId: string) {
   try {
     connectToDB();
 
-    // Find the community by its ID and delete it
+    // 根据社区ID查找并删除社区
     const deletedCommunity = await Community.findOneAndDelete({
       id: communityId,
     });
@@ -282,13 +282,13 @@ export async function deleteCommunity(communityId: string) {
       throw new Error("Community not found");
     }
 
-    // Delete all threads associated with the community
+    // 删除与社区关联的所有帖子
     await Thread.deleteMany({ community: communityId });
 
-    // Find all users who are part of the community
+    // 查找所有属于该社区的用户
     const communityUsers = await User.find({ communities: communityId });
 
-    // Remove the community from the 'communities' array for each user
+    // 从每个用户的'communities'数组中移除社区
     const updateUserPromises = communityUsers.map((user) => {
       user.communities.pull(communityId);
       return user.save();
@@ -298,7 +298,7 @@ export async function deleteCommunity(communityId: string) {
 
     return deletedCommunity;
   } catch (error) {
-    console.error("Error deleting community: ", error);
+    console.error("删除社区错误: ", error);
     throw error;
   }
 }

@@ -1,3 +1,5 @@
+// 这个文件定义了 Community 模型，表示社区的数据结构
+
 import mongoose from "mongoose";
 
 const communitySchema = new mongoose.Schema({
