@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { usePathname, useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod"; // 用于将Zod验证集成到React Hook Form中
-
+import { createThread } from "@/lib/actions/thread.action"; // 导入创建线程的服务器操作
 import {
   Form,
   FormControl,
@@ -19,8 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ThreadValidation } from "@/lib/validations/thread";
-// import { UserValidation } from "@/lib/validations/user";
-// import { updateUser } from "@/lib/actions/user.action";
+import { UserValidation } from "@/lib/validations/user";
+import { updateUser } from "@/lib/actions/user.action";
 
 interface Props {
   user: {
@@ -47,11 +47,16 @@ function PostThread( {userId}: {userId: string} ) {
     },
   });
 
-  const onSubmit = () => {
-    // await createThread();
+  const onSubmit = async (values: z.infer<typeof ThreadValidation>) => {
+    await createThread({
+      text: values.thread,
+      author: userId,
+      communityId: null,
+      path: pathname,
+    });
+
+    router.push("/")
   }
-
-
 
 
   return (
@@ -66,7 +71,7 @@ function PostThread( {userId}: {userId: string} ) {
           render={({ field }) => (
             <FormItem className='flex w-full flex-col gap-3'>
               <FormLabel className='text-base-semibold text-light-2'>
-                content
+                Content
               </FormLabel>
               <FormControl className="mt-10 no-focus border border-dark-4 bg-dark-3 text-light-1">
                 <Textarea
